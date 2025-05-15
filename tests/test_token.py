@@ -1,8 +1,8 @@
-from postcard_creator.postcard_creator import (
+from postcard_creator import (
     PostcardCreator,
     PostcardCreatorException,
 )
-from postcard_creator.token import Token
+from postcard_creator import Token
 import requests
 import requests_mock
 import logging

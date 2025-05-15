@@ -2,8 +2,8 @@ import base64
 
 import requests
 
-from postcard_creator.postcard_img_util import create_text_image, rotate_and_scale_image
-from postcard_creator.postcard_creator import (
+from postcard_creator._img_util import create_text_image, rotate_and_scale_image
+from postcard_creator._creator import (
     PostcardCreatorBase,
     PostcardCreatorException,
     Recipient,

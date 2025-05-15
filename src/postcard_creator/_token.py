@@ -13,7 +13,7 @@ from requests.adapters import HTTPAdapter
 from requests_toolbelt.utils import dump
 from urllib3 import Retry
 
-from postcard_creator.postcard_creator import PostcardCreatorException
+from postcard_creator._creator import PostcardCreatorException
 
 LOGGING_TRACE_LVL = 5
 logger = logging.getLogger("postcard_creator")

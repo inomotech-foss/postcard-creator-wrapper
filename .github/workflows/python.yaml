@@ -1,0 +1,19 @@
+# See: <https://docs.github.com/en/actions/writing-workflows/workflow-syntax-for-github-actions>
+
+name: Python
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Lint
+        uses: astral-sh/ruff-action@v3
+
+      - name: Format check
+        uses: astral-sh/ruff-action@v3
+        with:
+          args: "format --check --diff"

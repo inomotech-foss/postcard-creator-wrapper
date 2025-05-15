@@ -3,7 +3,7 @@ import datetime
 import importlib.resources
 import requests
 
-from postcard_creator.postcard_creator import (
+from postcard_creator._creator import (
     PostcardCreatorException,
     _dump_request,
     _encode_text,
@@ -11,7 +11,7 @@ from postcard_creator.postcard_creator import (
     logger,
     PostcardCreatorBase,
 )
-from postcard_creator.postcard_img_util import rotate_and_scale_image
+from postcard_creator._img_util import rotate_and_scale_image
 
 
 def _format_recipient(recipient):

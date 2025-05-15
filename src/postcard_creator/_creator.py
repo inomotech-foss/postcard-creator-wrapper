@@ -2,7 +2,7 @@ import logging
 import os
 from pathlib import Path
 
-from requests_toolbelt.utils import dump
+from requests_toolbelt.utils import dump  # type: ignore
 
 
 LOGGING_TRACE_LVL = 5
@@ -147,7 +147,7 @@ class PostcardCreator(object):
         #     from postcard_creator.postcard_creator_legacy import PostcardCreatorLegacy
         #     self.impl = PostcardCreatorLegacy(token)
         else:
-            from postcard_creator.postcard_creator_swissid import PostcardCreatorSwissId
+            from postcard_creator._swissid import PostcardCreatorSwissId
 
             self.impl = PostcardCreatorSwissId(token)
 

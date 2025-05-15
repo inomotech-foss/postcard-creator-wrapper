@@ -9,7 +9,7 @@ from PIL import ImageDraw, ImageFont, Image
 from colorthief import ColorThief
 from resizeimage import resizeimage
 
-from postcard_creator.postcard_creator import logger, _get_trace_postcard_sent_dir
+from postcard_creator._creator import logger, _get_trace_postcard_sent_dir
 
 
 def rotate_and_scale_image(
