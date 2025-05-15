@@ -1,5 +1,11 @@
-from postcard_creator.postcard_creator import PostcardCreator, Token, Postcard, Sender, Recipient, \
-    PostcardCreatorException
+from postcard_creator.postcard_creator import (
+    PostcardCreator,
+    Token,
+    Postcard,
+    Sender,
+    Recipient,
+    PostcardCreatorException,
+)
 import requests
 import requests_mock
 import logging
@@ -8,13 +14,12 @@ import json
 import pytest
 import os
 
-logging.basicConfig(level=logging.INFO,
-                    format='%(name)s (%(levelname)s): %(message)s')
-logging.getLogger('postcard_creator').setLevel(10)
+logging.basicConfig(level=logging.INFO, format="%(name)s (%(levelname)s): %(message)s")
+logging.getLogger("postcard_creator").setLevel(10)
 
-URL_TOKEN_SAML = 'mock://account.post.ch/SAML/IdentityProvider/'
-URL_TOKEN_SSO = 'mock://postcardcreator.post.ch/saml/SSO/alias/defaultAlias'
-URL_PCC_HOST = 'mock://postcardcreator.post.ch/rest/2.1'
+URL_TOKEN_SAML = "mock://account.post.ch/SAML/IdentityProvider/"
+URL_TOKEN_SSO = "mock://postcardcreator.post.ch/saml/SSO/alias/defaultAlias"
+URL_PCC_HOST = "mock://postcardcreator.post.ch/rest/2.1"
 
 adapter_token = None
 adapter_pcc = None
@@ -23,7 +28,7 @@ adapter_pcc = None
 def create_mocked_session(self):
     global adapter_token
     session = requests.Session()
-    session.mount('mock', adapter_token)
+    session.mount("mock", adapter_token)
     return session
 
 
@@ -31,7 +36,7 @@ def create_token():
     global adapter_token
     adapter_token = requests_mock.Adapter()
     Token._create_session = create_mocked_session
-    return Token(_protocol='mock://')
+    return Token(_protocol="mock://")
 
 
 def create_postcard_creator():
@@ -40,23 +45,23 @@ def create_postcard_creator():
     PostcardCreator._create_session = create_mocked_session
     token = create_token()
     token.token_expires_in = 3600
-    token.token_type = 'Bearer'
+    token.token_type = "Bearer"
     token.token = 0
     return PostcardCreator(token=token)
 
 
 def create_token_with_successful_login():
     token = create_token()
-    saml_response = pkg_resources.resource_string(__name__, 'saml_response.html').decode('utf-8')
-    access_token = {
-        'access_token': 0,
-        'token_type': 'token_type',
-        'expires_in': 3600
-    }
+    saml_response = pkg_resources.resource_string(
+        __name__, "saml_response.html"
+    ).decode("utf-8")
+    access_token = {"access_token": 0, "token_type": "token_type", "expires_in": 3600}
 
-    adapter_token.register_uri('GET', URL_TOKEN_SAML, text='', reason='')
-    adapter_token.register_uri('POST', URL_TOKEN_SAML, reason='', text=saml_response)
-    adapter_token.register_uri('POST', URL_TOKEN_SSO, reason='', text=json.dumps(access_token))
+    adapter_token.register_uri("GET", URL_TOKEN_SAML, text="", reason="")
+    adapter_token.register_uri("POST", URL_TOKEN_SAML, reason="", text=saml_response)
+    adapter_token.register_uri(
+        "POST", URL_TOKEN_SSO, reason="", text=json.dumps(access_token)
+    )
     return token
 
 
