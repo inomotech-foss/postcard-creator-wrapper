@@ -1,5 +1,2 @@
-import requests
-
-
 class PostcardCreatorException(Exception):
-    server_response: requests.Response | None = None
+    server_response: str | None = None

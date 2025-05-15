@@ -3,7 +3,6 @@ import logging
 from typing import Any
 
 import requests
-from PIL import ImageFont
 
 from ._error import PostcardCreatorException
 from ._img_util import create_text_image, rotate_and_scale_image
@@ -15,35 +14,6 @@ from ._postcard import (
 from ._token import Token
 
 _LOGGER = logging.getLogger(__package__)
-
-
-def _dump_request(response: requests.Response) -> None:
-    from requests_toolbelt.utils import dump  # type: ignore
-
-    data = dump.dump_all(response)
-    try:
-        _LOGGER.debug(data.decode())
-    except Exception:
-        data = str(data).replace("\\r\\n", "\r\n")
-        _LOGGER.debug(data)
-
-
-def _send_free_card_defaults(func):
-    def wrapped(*args, **kwargs):
-        kwargs["image_target_width"] = (
-            kwargs.get("image_target_width") or 154
-        )  # legacy only
-        kwargs["image_target_height"] = (
-            kwargs.get("image_target_height") or 111
-        )  # legacy only
-        kwargs["image_quality_factor"] = (
-            kwargs.get("image_quality_factor") or 20
-        )  # legacy only
-        kwargs["image_rotate"] = kwargs.get("image_rotate") or True
-        kwargs["image_export"] = kwargs.get("image_export") or False
-        return func(*args, **kwargs)
-
-    return wrapped
 
 
 def _format_sender(sender: Sender) -> dict[str, Any]:
@@ -89,14 +59,13 @@ class PostcardCreator:
 
     # XXX: we share some functionality with legacy wrapper here
     # however, it is little and not worth the lack of extensibility if generalized in super class
-    def _do_op(self, method, endpoint, **kwargs):
+    def _do_op(self, method: str, endpoint: str, **kwargs: Any) -> requests.Response:
         url = self.host + endpoint
         if "headers" not in kwargs or kwargs["headers"] is None:
             kwargs["headers"] = self._get_headers()
 
         _LOGGER.debug("{}: {}".format(method, url))
         response = self._session.request(method, url, **kwargs)
-        _dump_request(response)
 
         if response.status_code not in [200, 201, 204]:
             e = PostcardCreatorException(
@@ -108,7 +77,7 @@ class PostcardCreator:
             raise e
         return response
 
-    def _validate_model_response(self, endpoint, payload):
+    def _validate_model_response(self, endpoint: str, payload: dict[str, Any]) -> None:
         if payload.get("errors"):
             raise PostcardCreatorException(
                 f"cannot fetch {endpoint}: {payload['errors']}"
@@ -141,35 +110,33 @@ class PostcardCreator:
         self._validate_model_response(endpoint, payload)
         return payload["model"]
 
-    @_send_free_card_defaults
     def send_free_card(
         self,
         postcard: Postcard,
         mock_send: bool = False,
         image_export: bool = False,
-        **kwargs: Any,
+        image_rotate: bool = True,
     ) -> Any:
         if not postcard:
             raise PostcardCreatorException("Postcard must be set")
 
-        # XXX: endpoint no longer supports user specified w/h
-        kwargs["image_target_width"] = 1819
-        kwargs["image_quality_factor"] = 1
-        kwargs["image_target_height"] = 1311
         img_base64 = base64.b64encode(
             rotate_and_scale_image(
                 postcard.picture_stream,
                 img_format="jpeg",
                 image_export=image_export,
+                image_rotate=image_rotate,
                 enforce_size=True,
-                **kwargs,
+                image_target_width=1819,
+                image_quality_factor=1,
+                image_target_height=1311,
             )
         ).decode("ascii")
         img_text_base64 = base64.b64encode(
             self.create_text_cover(postcard.message)
         ).decode("ascii")
         endpoint = "/card/upload"
-        payload = {
+        payload: dict[str, Any] = {
             "lang": "en",
             "paid": False,
             "recipient": _format_recipient(postcard.recipient),
@@ -201,7 +168,7 @@ class PostcardCreator:
         _LOGGER.info(f"postcard submitted, orderid {payload['model'].get('orderId')}")
         return payload["model"]
 
-    def create_text_cover(self, msg: str) -> ImageFont.FreeTypeFont:
+    def create_text_cover(self, msg: str) -> bytes:
         """
         Create a jpg with given text
         """

@@ -148,6 +148,7 @@ def create_text_image(text: str, image_export: bool = False, **kwargs: Any) -> b
             left = min_line_w
             right = max_line_w
             font = load_font(font_size)
+            n = 0
             while left < right:
                 n = floor((left + right) / 2)
                 t = "".join([char * n for char in "1"])
@@ -155,10 +156,8 @@ def create_text_image(text: str, image_export: bool = False, **kwargs: Any) -> b
                 font_w = font_w + (2 * line_padding)
                 if font_w >= text_canvas_w:
                     right = n - 1
-                    pass
                 else:
                     left = n + 1
-                    pass
             return n
 
         size_l = min_size
@@ -173,14 +172,14 @@ def create_text_image(text: str, image_export: bool = False, **kwargs: Any) -> b
             line_w = line_width(size)
             last_line_w = line_w
 
-            lines = []
+            lines: list[str] = []
             for line in msg.splitlines():
                 cur_lines = textwrap.wrap(line, width=line_w)
                 for cur_line in cur_lines:
                     lines.append(cur_line)
 
             font = load_font(size)
-            total_w, line_h = _get_font_bbox_dim(font, msg)
+            _total_w, line_h = _get_font_bbox_dim(font, msg)
             tot_height = len(lines) * line_h
 
             if tot_height + (2 * padding) < text_canvas_h:
@@ -207,9 +206,9 @@ def create_text_image(text: str, image_export: bool = False, **kwargs: Any) -> b
     _LOGGER.debug(f"using font with size: {size}, width: {line_w}")
 
     font = load_font(size)
-    font_w, font_h = _get_font_bbox_dim(font, text)
+    _font_w, font_h = _get_font_bbox_dim(font, text)
 
-    lines = []
+    lines: list[str] = []
     for line in text.splitlines():
         cur_lines = textwrap.wrap(line, width=line_w)
         for cur_line in cur_lines:
@@ -240,6 +239,6 @@ def create_text_image(text: str, image_export: bool = False, **kwargs: Any) -> b
     return img_byte_arr.getvalue()
 
 
-def _get_font_bbox_dim(font: ImageFont.FreeTypeFont, text: str) -> tuple[float, float]:
+def _get_font_bbox_dim(font: ImageFont.FreeTypeFont, text: str) -> tuple[int, int]:
     left, top, right, bottom = font.getbbox(text)
-    return (right - left, bottom - top)
+    return (int(right - left), int(bottom - top))

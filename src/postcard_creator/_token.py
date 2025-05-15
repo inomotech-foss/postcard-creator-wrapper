@@ -4,15 +4,13 @@ import hashlib
 import logging
 import re
 import secrets
-import urllib
 from collections.abc import Sequence
 from typing import Any, Literal
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, urlparse, urlencode
 
 import requests
 from bs4 import BeautifulSoup
 from requests.adapters import HTTPAdapter
-from requests_toolbelt.utils import dump  # type: ignore
 from urllib3 import Retry
 
 from ._error import PostcardCreatorException
@@ -29,35 +27,6 @@ def base64_decode(string: str) -> bytes:
     padding = 4 - (len(string) % 4)
     string = string + ("=" * padding)
     return base64.urlsafe_b64decode(string)
-
-
-def _log_response(h: requests.Response) -> None:
-    for h in h.history:
-        _LOGGER.debug(h.request.method + ": " + str(h) + " " + h.url)
-    _LOGGER.debug(h.request.method + ": " + str(h) + " " + h.url)
-
-
-def _print_request(response: requests.Response) -> None:
-    _LOGGER.debug(
-        " {} {} [{}]".format(
-            response.request.method, response.request.url, response.status_code
-        )
-    )
-
-
-def _dump_request(response: requests.Response) -> None:
-    _print_request(response)
-    data = dump.dump_all(response)
-    try:
-        _LOGGER.debug(data.decode())
-    except Exception:
-        data = str(data).replace("\\r\\n", "\r\n")
-        _LOGGER.debug(data)
-
-
-def _log_and_dump(r: requests.Response) -> None:
-    _log_response(r)
-    _dump_request(r)
 
 
 class Token(object):
@@ -101,9 +70,6 @@ class Token(object):
         method: Literal["mixed", "legacy", "swissid"] = "mixed",
     ):
         _LOGGER.debug("fetching postcard account token")
-
-        if username is None or password is None:
-            raise PostcardCreatorException("No username/ password given")
 
         methods = ["mixed", "legacy", "swissid"]
         if method not in methods:
@@ -149,9 +115,9 @@ class Token(object):
 
         try:
             _LOGGER.debug(access_token)
-            self.token = access_token["access_token"]
-            self.token_type = access_token["token_type"]
-            self.token_expires_in = access_token["expires_in"]
+            self.token = access_token["access_token"]  # type: ignore
+            self.token_type = access_token["token_type"]  # type: ignore
+            self.token_expires_in = access_token["expires_in"]  # type: ignore
             self.token_fetched_at = datetime.datetime.now()
             self.token_implementation = implementation_type
             _LOGGER.info("access_token successfully fetched")
@@ -211,11 +177,10 @@ class Token(object):
         }
         url = "https://pccweb.api.post.ch/OAuth/authorization?"
         resp = session.get(
-            url + urllib.parse.urlencode(init_data),
+            url + urlencode(init_data),
             allow_redirects=True,
             headers=self.legacy_headers,
         )
-        _log_and_dump(resp)
 
         url_payload = {
             "targetURL": "https://pccweb.api.post.ch/SAML/ServiceProvider/?redirect_uri="
@@ -232,15 +197,14 @@ class Token(object):
         }
         url = "https://account.post.ch/idp/?login&"
         resp = session.post(
-            url + urllib.parse.urlencode(url_payload),
+            url + urlencode(url_payload),
             allow_redirects=True,
             headers=self.legacy_headers,
             data=data_payload,
         )
-        _log_and_dump(resp)
 
         resp = session.post(
-            url + urllib.parse.urlencode(url_payload),
+            url + urlencode(url_payload),
             allow_redirects=True,
             headers=self.legacy_headers,
         )
@@ -290,7 +254,6 @@ class Token(object):
         resp = requests.post(
             url, data=data, headers=self.legacy_headers, allow_redirects=False
         )
-        _log_and_dump(resp)
 
         if "access_token" not in resp.json() or resp.status_code != 200:
             raise PostcardCreatorException(
@@ -321,11 +284,10 @@ class Token(object):
         }
         url = "https://pccweb.api.post.ch/OAuth/authorization?"
         resp = session.get(
-            url + urllib.parse.urlencode(init_data),
+            url + urlencode(init_data),
             allow_redirects=True,
             headers=self.swissid_headers,
         )
-        _log_and_dump(resp)
 
         saml_payload = {"externalIDP": "externalIDP"}
         url = (
@@ -337,7 +299,6 @@ class Token(object):
         resp = session.post(
             url, data=saml_payload, allow_redirects=True, headers=self.swissid_headers
         )
-        _log_and_dump(resp)
         if len(resp.history) == 0:
             raise PostcardCreatorException("fail to fetch " + url)
 
@@ -358,7 +319,6 @@ class Token(object):
             + "&acr_values=loa-1&realm=%2Fsesam&service=qoa1"
         )
         resp = session.get(url, allow_redirects=True)
-        _log_and_dump(resp)
 
         url = (
             "https://login.swissid.ch/api-login/welcome-pack?locale=en"
@@ -366,7 +326,6 @@ class Token(object):
             + "&acr_values=loa-1&realm=%2Fsesam&service=qoa1"
         )
         resp = session.get(url, allow_redirects=True)
-        _log_and_dump(resp)
 
         # login with username and password
         url = (
@@ -375,7 +334,6 @@ class Token(object):
             + "&acr_values=loa-1&realm=%2Fsesam&service=qoa1"
         )
         resp = session.post(url, allow_redirects=True)
-        _log_and_dump(resp)
 
         # submit username and password
         url_query_string = (
@@ -391,7 +349,6 @@ class Token(object):
         headers["authId"] = resp.json()["tokens"]["authId"]
         step_data = {"username": username, "password": password}
         resp = session.post(url, json=step_data, headers=headers, allow_redirects=True)
-        _log_and_dump(resp)
 
         # anomaly detection
         resp = self._swiss_id_anomaly_detection(session, resp, url_query_string)
@@ -403,12 +360,10 @@ class Token(object):
             raise PostcardCreatorException("failed to login, username/password wrong?")
 
         resp = session.get(url, headers=self.swissid_headers, allow_redirects=True)
-        _log_and_dump(resp)
 
         step7_soup = BeautifulSoup(resp.text, "html.parser")
         url = step7_soup.find("form", {"name": "LoginForm"})["action"]
         resp = session.post(url, headers=self.swissid_headers)
-        _log_and_dump(resp)
 
         # find saml response
         step7_soup = BeautifulSoup(resp.text, "html.parser")
@@ -460,7 +415,6 @@ class Token(object):
             headers=self.swissid_headers,
             allow_redirects=False,
         )
-        _log_and_dump(resp)
 
         if "access_token" not in resp.json() or resp.status_code != 200:
             raise PostcardCreatorException(
@@ -494,7 +448,6 @@ class Token(object):
             headers = self.swissid_headers
             headers["authId"] = auth_id_device_print
             resp = session.post(url, json=device_print, headers=headers)
-            _log_and_dump(resp)
         except Exception as e:
             msg = (
                 "Anomaly detection step failed. \n"

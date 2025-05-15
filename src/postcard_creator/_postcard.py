@@ -27,7 +27,7 @@ class Recipient:
 
 @dataclasses.dataclass(frozen=True, kw_only=True)
 class Postcard:
-    sender: Sender | None
-    recipient: Recipient | None
+    sender: Sender
+    recipient: Recipient
     picture_stream: BinaryIO
     message: str = ""
