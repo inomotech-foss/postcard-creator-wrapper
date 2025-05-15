@@ -5,64 +5,63 @@ import logging
 import re
 import secrets
 import urllib
+from collections.abc import Sequence
+from typing import Any, Literal
 from urllib.parse import parse_qs, urlparse
 
 import requests
 from bs4 import BeautifulSoup
 from requests.adapters import HTTPAdapter
-from requests_toolbelt.utils import dump
+from requests_toolbelt.utils import dump  # type: ignore
 from urllib3 import Retry
 
-from postcard_creator._creator import PostcardCreatorException
+from ._error import PostcardCreatorException
 
-LOGGING_TRACE_LVL = 5
-logger = logging.getLogger("postcard_creator")
-logging.addLevelName(LOGGING_TRACE_LVL, "TRACE")
-setattr(logger, "trace", lambda *args: logger.log(LOGGING_TRACE_LVL, *args))
+_LOGGER = logging.getLogger(__package__)
 
 
-def base64_encode(string):
+def base64_encode(string: bytes) -> str:
     encoded = base64.urlsafe_b64encode(string).decode("ascii")
     return encoded.rstrip("=")
 
 
-def base64_decode(string):
+def base64_decode(string: str) -> bytes:
     padding = 4 - (len(string) % 4)
     string = string + ("=" * padding)
     return base64.urlsafe_b64decode(string)
 
 
-def _log_response(h):
+def _log_response(h: requests.Response) -> None:
     for h in h.history:
-        logger.debug(h.request.method + ": " + str(h) + " " + h.url)
-    logger.debug(h.request.method + ": " + str(h) + " " + h.url)
+        _LOGGER.debug(h.request.method + ": " + str(h) + " " + h.url)
+    _LOGGER.debug(h.request.method + ": " + str(h) + " " + h.url)
 
 
-def _print_request(response):
-    logger.debug(
+def _print_request(response: requests.Response) -> None:
+    _LOGGER.debug(
         " {} {} [{}]".format(
             response.request.method, response.request.url, response.status_code
         )
     )
 
 
-def _dump_request(response):
+def _dump_request(response: requests.Response) -> None:
     _print_request(response)
     data = dump.dump_all(response)
     try:
-        logger.trace(data.decode())
+        _LOGGER.debug(data.decode())
     except Exception:
         data = str(data).replace("\\r\\n", "\r\n")
-        logger.trace(data)
+        _LOGGER.debug(data)
 
 
-def _log_and_dump(r):
+def _log_and_dump(r: requests.Response) -> None:
     _log_response(r)
     _dump_request(r)
 
 
 class Token(object):
-    def __init__(self, _protocol="https://"):
+    def __init__(self, _protocol: str = "https://") -> None:
         self.protocol = _protocol
         self.base = "{}account.post.ch".format(self.protocol)
         self.swissid = "{}login.swissid.ch".format(self.protocol)
@@ -77,80 +76,97 @@ class Token(object):
         self.legacy_headers = {"User-Agent": self.user_agent}
         self.swissid_headers = {"User-Agent": self.user_agent}
 
-        self.token = None
-        self.token_type = None
-        self.token_expires_in = None
-        self.token_fetched_at = None
+        self.token: str | None = None
+        self.token_type: str | None = None
+        self.token_expires_in: int | None = None
+        self.token_fetched_at: datetime.datetime | None = None
         self.cache_token = False
 
-    def has_valid_credentials(self, username, password, method="mixed"):
+    def has_valid_credentials(
+        self,
+        username: str,
+        password: str,
+        method: Literal["mixed", "legacy", "swissid"] = "mixed",
+    ):
         try:
             self.fetch_token(username, password, method=method)
             return True
         except PostcardCreatorException:
             return False
 
-    def fetch_token(self, username, password, method="mixed"):
-        logger.debug("fetching postcard account token")
+    def fetch_token(
+        self,
+        username: str,
+        password: str,
+        method: Literal["mixed", "legacy", "swissid"] = "mixed",
+    ):
+        _LOGGER.debug("fetching postcard account token")
 
         if username is None or password is None:
             raise PostcardCreatorException("No username/ password given")
 
         methods = ["mixed", "legacy", "swissid"]
         if method not in methods:
-            raise PostcardCreatorException("unknown method. choose from: " + methods)
+            raise PostcardCreatorException(
+                "unknown method. choose from: " + repr(methods)
+            )
 
         success = False
         access_token = None
         implementation_type = ""
         if method != "swissid":
-            logger.info("using legacy username password authentication")
+            _LOGGER.info("using legacy username password authentication")
             session = self._create_session()
             try:
                 access_token = self._get_access_token_legacy(
                     session, username, password
                 )
-                logger.debug("legacy username/password authentication was successful")
+                _LOGGER.debug("legacy username/password authentication was successful")
                 success = True
                 implementation_type = "legacy"
             except Exception as e:
-                logger.info("legacy username password authentication failed")
-                logger.info(e)
+                _LOGGER.info("legacy username password authentication failed")
+                _LOGGER.info(e)
                 if method == "mixed":
-                    logger.info("Trying swissid now because method=legacy")
+                    _LOGGER.info("Trying swissid now because method=legacy")
                 else:
-                    logger.info("giving up")
+                    _LOGGER.info("giving up")
                     raise e
                 pass
         if method != "legacy" and not success:
-            logger.info("using swissid username password authentication")
+            _LOGGER.info("using swissid username password authentication")
             try:
                 session = self._create_session()
                 access_token = self._get_access_token_swissid(
                     session, username, password
                 )
-                logger.debug("swissid username/password authentication was successful")
+                _LOGGER.debug("swissid username/password authentication was successful")
                 implementation_type = "swissid"
             except Exception as e:
-                logger.info("swissid username password authentication failed")
-                logger.info(e)
+                _LOGGER.info("swissid username password authentication failed")
+                _LOGGER.info(e)
                 raise e
 
         try:
-            logger.trace(access_token)
+            _LOGGER.debug(access_token)
             self.token = access_token["access_token"]
             self.token_type = access_token["token_type"]
             self.token_expires_in = access_token["expires_in"]
             self.token_fetched_at = datetime.datetime.now()
             self.token_implementation = implementation_type
-            logger.info("access_token successfully fetched")
+            _LOGGER.info("access_token successfully fetched")
 
         except Exception as e:
-            logger.info("access_token does not contain required values. someting broke")
+            _LOGGER.info(
+                "access_token does not contain required values. someting broke"
+            )
             raise e
 
     def _create_session(
-        self, retries=5, backoff_factor=0.5, status_forcelist=(500, 502, 504)
+        self,
+        retries: int = 5,
+        backoff_factor: float = 0.5,
+        status_forcelist: Sequence[int] = (500, 502, 504),
     ):
         # XXX: Backend will terminate connection if we request too frequently
         session = requests.Session()
@@ -166,15 +182,17 @@ class Token(object):
         session.mount("https://", adapter)
         return session
 
-    def _get_code_verifier(self):
+    def _get_code_verifier(self) -> str:
         return base64_encode(secrets.token_bytes(64))
 
-    def _get_code(self, code_verifier):
+    def _get_code(self, code_verifier: str) -> str:
         m = hashlib.sha256()
         m.update(code_verifier.encode("utf-8"))
         return base64_encode(m.digest())
 
-    def _get_access_token_legacy(self, session, username, password):
+    def _get_access_token_legacy(
+        self, session: requests.Session, username: str, password: str
+    ) -> Any:
         code_verifier = self._get_code_verifier()
         code_resp_uri = self._get_code(code_verifier)
         redirect_uri = "ch.post.pcc://auth/1016c75e-aa9c-493e-84b8-4eb3ba6177ef"
@@ -281,7 +299,9 @@ class Token(object):
 
         return resp.json()
 
-    def _get_access_token_swissid(self, session, username, password):
+    def _get_access_token_swissid(
+        self, session: requests.Session, username: str, password: str
+    ) -> Any:
         code_verifier = self._get_code_verifier()
         code_resp_uri = self._get_code(code_verifier)
         redirect_uri = "ch.post.pcc://auth/1016c75e-aa9c-493e-84b8-4eb3ba6177ef"
@@ -328,7 +348,7 @@ class Token(object):
         except Exception:
             # only use goto_param without further params
             pass
-        logger.trace("goto parm=" + goto_param)
+        _LOGGER.debug("goto parm=" + goto_param)
         if goto_param is None or goto_param == "":
             raise PostcardCreatorException("swissid: cannot fetch goto param")
 
@@ -379,7 +399,7 @@ class Token(object):
         try:
             url = resp.json()["nextAction"]["successUrl"]
         except Exception:
-            logger.info("failed to login. username/password wrong?")
+            _LOGGER.info("failed to login. username/password wrong?")
             raise PostcardCreatorException("failed to login, username/password wrong?")
 
         resp = session.get(url, headers=self.swissid_headers, allow_redirects=True)
@@ -449,7 +469,12 @@ class Token(object):
 
         return resp.json()
 
-    def _swiss_id_anomaly_detection(self, session, prev_response, url_query_string):
+    def _swiss_id_anomaly_detection(
+        self,
+        session: requests.Session,
+        prev_response: requests.Response,
+        url_query_string: str,
+    ) -> requests.Response:
         # XXX: Starting 2022-10, endpoints introduce anomaly detection, possibly to further restrict automated access
         # Currently, any valid device_print payload seems to work
         # useragent in request and payload can differ and still be valid
@@ -461,7 +486,7 @@ class Token(object):
         try:
             next_action = device_print_ctx["nextAction"]["type"]
             if next_action != "SEND_DEVICE_PRINT":
-                logger.warning(
+                _LOGGER.warning(
                     "next action must be SEND_DEVICE_PRINT but got " + next_action
                 )
             auth_id_device_print = device_print_ctx["tokens"]["authId"]
@@ -476,18 +501,19 @@ class Token(object):
                 + f"previous response body: {device_print_ctx}\n"
                 + f"pending request: {url} \n"
             )
-            logger.info(msg)
-            logger.info(e)
+            _LOGGER.info(msg)
+            _LOGGER.info(e)
             raise PostcardCreatorException(msg, e)
         return resp
 
-    def _formulate_anomaly_detection(self):
+    def _formulate_anomaly_detection(self) -> dict[str, Any]:
         # Valid device_print generated in an x86 android 12 emulator,
         # XXX: if something breaks in the future, we may have to get more clever here
         device_print = {
             "appCodeName": "Mozilla",
             "appName": "Netscape",
-            "appVersion": self.user_agent.replace("Mozilla/", ""),  # Mozilla/5.0
+            # Mozilla/5.0
+            "appVersion": self.user_agent.replace("Mozilla/", ""),
             "fonts": {
                 "installedFonts": "cursive;monospace;serif;sans-serif;fantasy;default;Arial;Courier;"
                 + "Courier New;Georgia;Tahoma;Times;Times New Roman;Verdana"
@@ -509,7 +535,7 @@ class Token(object):
 
         return device_print
 
-    def to_json(self):
+    def to_json(self) -> dict[str, Any]:
         return {
             "fetched_at": self.token_fetched_at,
             "token": self.token,
