@@ -1,5 +1,4 @@
 import io
-import math
 import os
 import textwrap
 from math import floor
@@ -122,19 +121,19 @@ def create_text_image(text, image_export=False, **kwargs):
             raise Exception("illegal arguments, min_line_w < max_line_w needed")
 
         def line_width(font_size, line_padding=70):
-            l = min_line_w
-            r = max_line_w
+            left = min_line_w
+            right = max_line_w
             font = load_font(font_size)
-            while l < r:
-                n = floor((l + r) / 2)
+            while left < right:
+                n = floor((left + right) / 2)
                 t = "".join([char * n for char in "1"])
                 font_w, font_h = font.getsize(t)
                 font_w = font_w + (2 * line_padding)
                 if font_w >= text_canvas_w:
-                    r = n - 1
+                    right = n - 1
                     pass
                 else:
-                    l = n + 1
+                    left = n + 1
                     pass
             return n
 

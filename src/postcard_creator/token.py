@@ -325,7 +325,7 @@ class Token(object):
         goto_param = re.search(r"goto=(.*?)$", step1_goto_url).group(1)
         try:
             goto_param = goto_param.split("&")[0]
-        except Exception as e:
+        except Exception:
             # only use goto_param without further params
             pass
         logger.trace("goto parm=" + goto_param)
@@ -378,7 +378,7 @@ class Token(object):
 
         try:
             url = resp.json()["nextAction"]["successUrl"]
-        except Exception as e:
+        except Exception:
             logger.info("failed to login. username/password wrong?")
             raise PostcardCreatorException("failed to login, username/password wrong?")
 

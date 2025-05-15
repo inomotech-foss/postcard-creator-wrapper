@@ -1,9 +1,6 @@
 from postcard_creator.postcard_creator import (
     PostcardCreator,
     Token,
-    Postcard,
-    Sender,
-    Recipient,
     PostcardCreatorException,
 )
 import requests
@@ -12,7 +9,6 @@ import logging
 import pkg_resources
 import json
 import pytest
-import os
 
 logging.basicConfig(level=logging.INFO, format="%(name)s (%(levelname)s): %(message)s")
 logging.getLogger("postcard_creator").setLevel(10)

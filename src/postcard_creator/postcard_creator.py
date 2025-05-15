@@ -1,13 +1,14 @@
 import logging
-import math
 import os
-from io import BytesIO
 from pathlib import Path
-from time import gmtime, strftime
 
-from PIL import Image
 from requests_toolbelt.utils import dump
-from resizeimage import resizeimage
+
+
+# expose Token class in this module for backwards compatibility
+from postcard_creator.token import Token as T
+
+Token = T
 
 LOGGING_TRACE_LVL = 5
 logger = logging.getLogger("postcard_creator")
@@ -31,7 +32,8 @@ def _dump_request(response):
 
 
 def _encode_text(text):
-    return text.encode("ascii", "xmlcharrefreplace").decode("utf-8")  # escape umlaute
+    # escape umlaute
+    return text.encode("ascii", "xmlcharrefreplace").decode("utf-8")
 
 
 class PostcardCreatorException(Exception):
@@ -182,11 +184,6 @@ class PostcardCreatorBase(object):
         """
         pass
 
-
-# expose Token class in this module for backwards compatibility
-from postcard_creator.token import Token as T
-
-Token = T
 
 if __name__ == "__main__":
     logging.basicConfig(
