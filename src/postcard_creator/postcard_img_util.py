@@ -4,7 +4,7 @@ import textwrap
 from math import floor
 from time import strftime, gmtime
 
-import pkg_resources
+import importlib.resources
 from PIL import ImageDraw, ImageFont, Image
 from colorthief import ColorThief
 from resizeimage import resizeimage
@@ -106,9 +106,12 @@ def create_text_image(text, image_export=False, **kwargs):
     text_canvas_font_name = "open_sans_emoji.ttf"
 
     def load_font(size):
-        return ImageFont.truetype(
-            pkg_resources.resource_stream(__name__, text_canvas_font_name), size
-        )
+        with importlib.resources.as_file(
+            importlib.resources.files("postcard_creator").joinpath(
+                text_canvas_font_name
+            )
+        ) as font_path:
+            return ImageFont.truetype(str(font_path), size)
 
     def find_optimal_size(
         msg, min_size=20, max_size=400, min_line_w=1, max_line_w=80, padding=0

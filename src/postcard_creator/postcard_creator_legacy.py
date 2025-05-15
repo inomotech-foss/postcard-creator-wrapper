@@ -1,6 +1,6 @@
 import datetime
 
-import pkg_resources
+import importlib.resources
 import requests
 
 from postcard_creator.postcard_creator import (
@@ -51,12 +51,18 @@ class PostcardCreatorLegacy(PostcardCreatorBase):
         self.host = "https://postcardcreator.post.ch/rest/2.2"
         self._session = self._create_session()
 
-        self.frontpage_layout = pkg_resources.resource_string(
-            __name__, "page_1.svg"
-        ).decode("utf-8")
-        self.backpage_layout = pkg_resources.resource_string(
-            __name__, "page_2.svg"
-        ).decode("utf-8")
+        with (
+            importlib.resources.files("postcard_creator")
+            .joinpath("page_1.svg")
+            .open("r", encoding="utf-8") as f
+        ):
+            self.frontpage_layout = f.read()
+        with (
+            importlib.resources.files("postcard_creator")
+            .joinpath("page_2.svg")
+            .open("r", encoding="utf-8") as f
+        ):
+            self.backpage_layout = f.read()
 
     def _get_headers(self):
         return {

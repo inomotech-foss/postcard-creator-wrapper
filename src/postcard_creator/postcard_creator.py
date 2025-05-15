@@ -5,11 +5,6 @@ from pathlib import Path
 from requests_toolbelt.utils import dump
 
 
-# expose Token class in this module for backwards compatibility
-from postcard_creator.token import Token as T
-
-Token = T
-
 LOGGING_TRACE_LVL = 5
 logger = logging.getLogger("postcard_creator")
 logging.addLevelName(LOGGING_TRACE_LVL, "TRACE")
