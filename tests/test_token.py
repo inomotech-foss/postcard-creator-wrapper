@@ -1,14 +1,16 @@
+import importlib.resources
+import json
+import logging
+
+import pytest
+import requests
+import requests_mock
+
 from postcard_creator import (
     PostcardCreator,
     PostcardCreatorException,
+    Token,
 )
-from postcard_creator import Token
-import requests
-import requests_mock
-import logging
-import importlib.resources
-import json
-import pytest
 
 logging.basicConfig(level=logging.INFO, format="%(name)s (%(levelname)s): %(message)s")
 logging.getLogger("postcard_creator").setLevel(10)
