@@ -4,36 +4,35 @@ from typing import IO, Any
 
 import requests
 
+from ._auth import Token
 from ._error import PostcardCreatorException
 from ._img_util import create_text_image, rotate_and_scale_image
 from ._types import (
-    Recipient,
-    Sender,
+    Address,
 )
-from ._auth import Token
 
 _LOGGER = logging.getLogger(__package__)
 
 
-def _format_sender(sender: Sender) -> dict[str, Any]:
+def _format_sender(sender: Address) -> dict[str, Any]:
     return {
         "city": sender.place,
         "company": sender.company,
-        "firstname": sender.prename,
-        "lastname": sender.lastname,
+        "firstname": sender.first_name,
+        "lastname": sender.last_name,
         "street": sender.street,
         "zip": sender.zip_code,
     }
 
 
-def _format_recipient(recipient: Recipient) -> dict[str, Any]:
+def _format_recipient(recipient: Address) -> dict[str, Any]:
     return {
         "city": recipient.place,
         "company": recipient.company,
         "companyAddon": recipient.company_addition,
         "country": "SWITZERLAND",
-        "firstname": recipient.prename,
-        "lastname": recipient.lastname,
+        "firstname": recipient.first_name,
+        "lastname": recipient.last_name,
         "street": recipient.street,
         "title": recipient.salutation,
         "zip": recipient.zip_code,
@@ -111,11 +110,11 @@ class PostcardCreator:
 
     def send_card(
         self,
+        *,
         message: str,
         picture: IO[bytes],
-        *,
-        recipient: Recipient,
-        sender: Sender,
+        recipient: Address,
+        sender: Address,
         mock_send: bool = False,
         image_export: bool = False,
         image_rotate: bool = True,

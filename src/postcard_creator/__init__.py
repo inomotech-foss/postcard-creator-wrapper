@@ -1,15 +1,11 @@
-from ._types import (
-    Recipient,
-    Sender,
-)
-from ._creator import PostcardCreator
 from ._auth import Token
+from ._creator import PostcardCreator
 from ._error import PostcardCreatorException
+from ._types import Address
 
 __all__ = [
     "PostcardCreator",
     "PostcardCreatorException",
-    "Recipient",
-    "Sender",
+    "Address",
     "Token",
 ]

@@ -6,7 +6,7 @@ import re
 import secrets
 from collections.abc import Sequence
 from typing import Any, Literal
-from urllib.parse import parse_qs, urlparse, urlencode
+from urllib.parse import parse_qs, urlencode, urlparse
 
 import requests
 from bs4 import BeautifulSoup
@@ -221,20 +221,23 @@ class Token(object):
         saml_soup = BeautifulSoup(resp.text, "html.parser")
         saml_response = saml_soup.find("input", {"name": "SAMLResponse"})
 
-        if saml_response is None or saml_response.get("value") is None:
+        if saml_response is None or saml_response.get("value") is None:  # type: ignore
             raise PostcardCreatorException(
                 "Username/password authentication failed. Are your credentials valid?."
             )
 
-        saml_response = saml_response["value"]
-        relay_state = (saml_soup.find("input", {"name": "RelayState"})["value"],)
+        saml_response = saml_response["value"]  # type: ignore
+        relay_state = (saml_soup.find("input", {"name": "RelayState"})["value"],)  # type: ignore
 
         url = "https://pccweb.api.post.ch/OAuth/"  # important: '/' at the end
         customer_headers = self.legacy_headers
         customer_headers["Origin"] = "https://account.post.ch"
         customer_headers["X-Requested-With"] = "ch.post.it.pcc"
         customer_headers["Upgrade-Insecure-Requests"] = str(1)
-        saml_payload = {"RelayState": relay_state, "SAMLResponse": saml_response}
+        saml_payload: dict[str, Any] = {
+            "RelayState": relay_state,
+            "SAMLResponse": saml_response,
+        }
         resp = session.post(
             url, headers=customer_headers, data=saml_payload, allow_redirects=False
         )  # do not follow redirects as we cannot redirect to android uri
@@ -312,7 +315,9 @@ class Token(object):
             raise PostcardCreatorException("fail to fetch " + url)
 
         step1_goto_url = resp.history[len(resp.history) - 1].headers["Location"]
-        goto_param = re.search(r"goto=(.*?)$", step1_goto_url).group(1)
+        goto_match = re.search(r"goto=(.*?)$", step1_goto_url)
+        assert goto_match is not None
+        goto_param = goto_match.group(1)
         try:
             goto_param = goto_param.split("&")[0]
         except Exception:
@@ -371,14 +376,14 @@ class Token(object):
         resp = session.get(url, headers=self.swissid_headers, allow_redirects=True)
 
         step7_soup = BeautifulSoup(resp.text, "html.parser")
-        url = step7_soup.find("form", {"name": "LoginForm"})["action"]
+        url: str = step7_soup.find("form", {"name": "LoginForm"})["action"]  # type: ignore
         resp = session.post(url, headers=self.swissid_headers)
 
         # find saml response
         step7_soup = BeautifulSoup(resp.text, "html.parser")
         saml_response = step7_soup.find("input", {"name": "SAMLResponse"})
 
-        if saml_response is None or saml_response.get("value") is None:
+        if saml_response is None or saml_response.get("value") is None:  # type: ignore
             raise PostcardCreatorException(
                 "Username/password authentication failed. Are your credentials valid?."
             )
@@ -389,9 +394,9 @@ class Token(object):
         customer_headers["Origin"] = "https://account.post.ch"
         customer_headers["X-Requested-With"] = "ch.post.it.pcc"
         customer_headers["Upgrade-Insecure-Requests"] = str(1)
-        saml_payload = {
-            "RelayState": step7_soup.find("input", {"name": "RelayState"})["value"],
-            "SAMLResponse": saml_response.get("value"),
+        saml_payload: dict[str, Any] = {
+            "RelayState": step7_soup.find("input", {"name": "RelayState"})["value"],  # type: ignore
+            "SAMLResponse": saml_response.get("value"),  # type: ignore
         }
         resp = session.post(
             url, headers=customer_headers, data=saml_payload, allow_redirects=False
@@ -471,7 +476,7 @@ class Token(object):
     def _formulate_anomaly_detection(self) -> dict[str, Any]:
         # Valid device_print generated in an x86 android 12 emulator,
         # XXX: if something breaks in the future, we may have to get more clever here
-        device_print = {
+        return {
             "appCodeName": "Mozilla",
             "appName": "Netscape",
             # Mozilla/5.0
@@ -494,8 +499,6 @@ class Token(object):
             "userAgent": self.user_agent,
             "vendor": "Google Inc.",
         }
-
-        return device_print
 
     def to_json(self) -> dict[str, Any]:
         return {
