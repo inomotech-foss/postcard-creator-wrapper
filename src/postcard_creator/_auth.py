@@ -49,7 +49,16 @@ class Token(object):
         self.token_type: str | None = None
         self.token_expires_in: int | None = None
         self.token_fetched_at: datetime.datetime | None = None
-        self.cache_token = False
+
+    def is_expired(self, *, now: datetime.datetime | None = None) -> bool:
+        if self.token_fetched_at is None or self.token_expires_in is None:
+            return True
+        expires_at = self.token_fetched_at + datetime.timedelta(
+            seconds=self.token_expires_in - 60
+        )
+        if not now:
+            now = datetime.datetime.now(datetime.UTC)
+        return now >= expires_at
 
     def has_valid_credentials(
         self,
@@ -118,7 +127,7 @@ class Token(object):
             self.token = access_token["access_token"]  # type: ignore
             self.token_type = access_token["token_type"]  # type: ignore
             self.token_expires_in = access_token["expires_in"]  # type: ignore
-            self.token_fetched_at = datetime.datetime.now()
+            self.token_fetched_at = datetime.datetime.now(datetime.UTC)
             self.token_implementation = implementation_type
             _LOGGER.info("access_token successfully fetched")
 
