@@ -1,17 +1,16 @@
 import base64
 import logging
-from typing import Any
+from typing import IO, Any
 
 import requests
 
 from ._error import PostcardCreatorException
 from ._img_util import create_text_image, rotate_and_scale_image
-from ._postcard import (
-    Postcard,
+from ._types import (
     Recipient,
     Sender,
 )
-from ._token import Token
+from ._auth import Token
 
 _LOGGER = logging.getLogger(__package__)
 
@@ -110,19 +109,21 @@ class PostcardCreator:
         self._validate_model_response(endpoint, payload)
         return payload["model"]
 
-    def send_free_card(
+    def send_card(
         self,
-        postcard: Postcard,
+        message: str,
+        picture: IO[bytes],
+        *,
+        recipient: Recipient,
+        sender: Sender,
         mock_send: bool = False,
         image_export: bool = False,
         image_rotate: bool = True,
+        paid: bool = False,
     ) -> Any:
-        if not postcard:
-            raise PostcardCreatorException("Postcard must be set")
-
         img_base64 = base64.b64encode(
             rotate_and_scale_image(
-                postcard.picture_stream,
+                picture,
                 img_format="jpeg",
                 image_export=image_export,
                 image_rotate=image_rotate,
@@ -133,14 +134,14 @@ class PostcardCreator:
             )
         ).decode("ascii")
         img_text_base64 = base64.b64encode(
-            self.create_text_cover(postcard.message)
+            create_text_image(message, image_export=image_export)
         ).decode("ascii")
         endpoint = "/card/upload"
         payload: dict[str, Any] = {
             "lang": "en",
-            "paid": False,
-            "recipient": _format_recipient(postcard.recipient),
-            "sender": _format_sender(postcard.sender),
+            "paid": paid,
+            "recipient": _format_recipient(recipient),
+            "sender": _format_sender(sender),
             "text": "",
             "textImage": img_text_base64,  # jpeg, JFIF standard 1.01, 720x744
             "image": img_base64,  # jpeg, JFIF standard 1.01, 1819x1311
@@ -167,9 +168,3 @@ class PostcardCreator:
 
         _LOGGER.info(f"postcard submitted, orderid {payload['model'].get('orderId')}")
         return payload["model"]
-
-    def create_text_cover(self, msg: str) -> bytes:
-        """
-        Create a jpg with given text
-        """
-        return create_text_image(msg, image_export=True)

@@ -1,5 +1,4 @@
 import dataclasses
-from typing import BinaryIO
 
 
 @dataclasses.dataclass(frozen=True, kw_only=True)
@@ -23,11 +22,3 @@ class Recipient:
     company: str = ""
     company_addition: str = ""
     salutation: str = ""
-
-
-@dataclasses.dataclass(frozen=True, kw_only=True)
-class Postcard:
-    sender: Sender
-    recipient: Recipient
-    picture_stream: BinaryIO
-    message: str = ""
