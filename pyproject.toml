@@ -4,7 +4,10 @@ version = "0.1.0"
 description = "A python wrapper around the Rest API of the Swiss Postcard creator"
 readme = "README.md"
 license = "Apache-2.0"
-authors = [{ name = "Andrin Bertschi", email = "apps@abertschi.ch" }]
+authors = [
+    { name = "Andrin Bertschi", email = "apps@abertschi.ch" },
+    { name = "Simon Berger", email = "simon.berger@inomotech.com" },
+]
 keywords = ["postcard", "creator", "swiss"]
 classifiers = ["Intended Audience :: Developers"]
 requires-python = ">=3.13"
@@ -22,9 +25,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [dependency-groups]
-dev = [
-    "pytest>=8.3.5",
- "requests-mock>=1.12.1",
- "ruff>=0.11.10",
- "ty>=0.0.1a3",
-]
+dev = ["pytest>=8.3.5", "requests-mock>=1.12.1", "ruff>=0.11.10", "ty>=0.0.1a3"]
+
+[tool.ruff.lint]
+extend-select = ["I"]

@@ -3,7 +3,6 @@ import io
 import logging
 import os
 import textwrap
-from collections.abc import Sequence
 from math import floor
 from pathlib import Path
 from time import gmtime, strftime
@@ -72,10 +71,10 @@ def rotate_and_scale_image(
         # validate=True will throw exception if image is too small
         #
         try:
-            cover = resizeimage.resize_cover(
+            cover = resizeimage.resize_cover(  # type: ignore
                 image,
                 [width, height],
-                validate=fallback_color_fill,
+                validate=fallback_color_fill,  # type: ignore
             )
         except Exception as e:
             _LOGGER.warning(e)
@@ -85,9 +84,9 @@ def rotate_and_scale_image(
             )
 
             color_thief = ColorThief(file)
-            (r, g, b) = color_thief.get_color(quality=1)
-            color = (r, g, b, 0)
-            cover = resizeimage.resize_contain(image, [width, height], bg_color=color)
+            (r, g, b) = color_thief.get_color(quality=1)  # type: ignore
+            color = (r, g, b, 0)  # type: ignore
+            cover = resizeimage.resize_contain(image, [width, height], bg_color=color)  # type: ignore
             image_export = True
             _LOGGER.warning(
                 f"using image boundary color {color}, exporting image for visual inspection."
@@ -95,9 +94,9 @@ def rotate_and_scale_image(
 
         _LOGGER.debug("resizing done")
 
-        cover = cover.convert("RGB")
+        cover = cover.convert("RGB")  # type: ignore
         with io.BytesIO() as f:
-            cover.save(f, img_format)
+            cover.save(f, img_format)  # type: ignore
             scaled = f.getvalue()
 
         if image_export:
@@ -106,12 +105,16 @@ def rotate_and_scale_image(
             )
             path = os.path.join(_get_trace_postcard_sent_dir(), name)
             _LOGGER.info("exporting image to {} (image_export=True)".format(path))
-            cover.save(path)
+            cover.save(path)  # type: ignore
 
     return scaled
 
 
-def create_text_image(text: str, image_export: bool = False, **kwargs: Any) -> bytes:
+def create_text_image(
+    text: str,
+    image_export: bool = False,
+    line_height_mul: float = 1.15,
+) -> bytes:
     """
     Create a jpg with given text and return in bytes format
     """
@@ -120,6 +123,7 @@ def create_text_image(text: str, image_export: bool = False, **kwargs: Any) -> b
     text_canvas_bg = "white"
     text_canvas_fg = "black"
     text_canvas_font_name = "open_sans_emoji.ttf"
+    text_margin = 10
 
     def load_font(size: int):
         with importlib.resources.as_file(
@@ -129,104 +133,59 @@ def create_text_image(text: str, image_export: bool = False, **kwargs: Any) -> b
         ) as font_path:
             return ImageFont.truetype(str(font_path), size)
 
-    def find_optimal_size(
-        msg: str,
-        min_size: int = 20,
-        max_size: int = 400,
-        min_line_w: int = 1,
-        max_line_w: int = 80,
-        padding: int = 0,
-    ):
-        """
-        Find optimal font size and line width for a given text
-        """
-
-        if min_line_w >= max_line_w:
-            raise Exception("illegal arguments, min_line_w < max_line_w needed")
-
-        def line_width(font_size: int, line_padding: int = 70) -> int:
-            left = min_line_w
-            right = max_line_w
-            font = load_font(font_size)
-            n = 0
-            while left < right:
-                n = floor((left + right) / 2)
-                t = "".join([char * n for char in "1"])
-                font_w, _font_h = _get_font_bbox_dim(font, t)
-                font_w = font_w + (2 * line_padding)
-                if font_w >= text_canvas_w:
-                    right = n - 1
-                else:
-                    left = n + 1
-            return n
-
-        size_l = min_size
-        size_r = max_size
-        last_line_w = 0
-        last_size = 0
-
-        while size_l < size_r:
-            size = floor((size_l + size_r) / 2.0)
-            last_size = size
-
-            line_w = line_width(size)
-            last_line_w = line_w
-
-            lines: list[str] = []
-            for line in msg.splitlines():
-                cur_lines = textwrap.wrap(line, width=line_w)
-                for cur_line in cur_lines:
-                    lines.append(cur_line)
-
-            font = load_font(size)
-            _total_w, line_h = _get_font_bbox_dim(font, msg)
-            tot_height = len(lines) * line_h
-
-            if tot_height + (2 * padding) < text_canvas_h:
-                start_y = (text_canvas_h - tot_height) / 2
-            else:
-                start_y = 0
-
-            if start_y == 0:
-                size_r = size - 1
-            else:
-                # does fit
-                size_l = size + 1
-
-        return last_size, last_line_w
-
-    def center_y(lines: Sequence[Any], font_h: int) -> int:
-        tot_height = len(lines) * font_h
-        if tot_height < text_canvas_h:
-            return (text_canvas_h - tot_height) // 2
-        else:
-            return 0
-
-    size, line_w = find_optimal_size(text, padding=50)
-    _LOGGER.debug(f"using font with size: {size}, width: {line_w}")
-
-    font = load_font(size)
-    _font_w, font_h = _get_font_bbox_dim(font, text)
-
+    size_l = 10
+    size_r = 300
+    size = chars_per_line = line_h = text_y_start = 0
     lines: list[str] = []
-    for line in text.splitlines():
-        cur_lines = textwrap.wrap(line, width=line_w)
-        for cur_line in cur_lines:
-            lines.append(cur_line)
-    text_y_start = center_y(lines, font_h)
+    font: ImageFont.FreeTypeFont | None = None
+    while size_l < size_r:
+        size = floor((size_l + size_r) / 2.0)
+
+        font = load_font(size)
+        bbox = font.getbbox("1")
+        chars_per_line = int((text_canvas_w - 2 * text_margin) / (bbox[2] - bbox[0]))
+
+        lines = []
+        for line in text.splitlines():
+            lines.extend(textwrap.wrap(line, width=chars_per_line))
+
+        line_h = round(bbox[3] * line_height_mul)
+        total_h_with_margin = len(lines) * line_h + (2 * text_margin)
+
+        if total_h_with_margin < text_canvas_h:
+            # does fit
+            size_l = size + 1
+            text_y_start = (text_canvas_h - total_h_with_margin) // 2
+        else:
+            # does not fit
+            size_r = size - 1
+            text_y_start = 0
+
+    assert font is not None
+    _LOGGER.debug(
+        f"using font with size: {size}px, chars per line: {chars_per_line} line-height: {line_h}px"
+    )
 
     canvas = Image.new("RGB", (text_canvas_w, text_canvas_h), text_canvas_bg)
     draw = ImageDraw.Draw(canvas)
+
     for line in lines:
-        width, height = _get_font_bbox_dim(font, line)
+        line_w, actual_line_h = _get_font_bbox_dim(font, line)
+        if actual_line_h > line_h:
+            _LOGGER.warning(
+                "Line is higher than expected line height. %s > %s",
+                actual_line_h,
+                line_h,
+            )
+
         draw.text(
-            ((text_canvas_w - width) // 2, text_y_start),
+            ((text_canvas_w - line_w) // 2, text_y_start),
             line,
             font=font,
             fill=text_canvas_fg,
             embedded_color=True,
         )
-        text_y_start += height
+        text_y_start += line_h
 
     if image_export:
         name = strftime("postcard_creator_export_%Y-%m-%d_%H-%M-%S_text.jpg", gmtime())

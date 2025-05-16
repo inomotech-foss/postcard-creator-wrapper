@@ -5,10 +5,11 @@ from typing import IO, Any
 import requests
 
 from ._auth import Token
-from ._error import PostcardCreatorException
+from ._error import FreeQuotaExceededException, PostcardCreatorException
 from ._img_util import create_text_image, rotate_and_scale_image
 from ._types import (
     Address,
+    Quota,
 )
 
 _LOGGER = logging.getLogger(__package__)
@@ -42,7 +43,7 @@ def _format_recipient(recipient: Address) -> dict[str, Any]:
 class PostcardCreator:
     def __init__(self, token: Token) -> None:
         self.token = token
-        self._session = self._create_session()
+        self._session = requests.Session()
         self.host = "https://pccweb.api.post.ch/secure/api/mobile/v1"
 
     def _get_headers(self):
@@ -51,9 +52,6 @@ class PostcardCreator:
             "Version/4.0 Chrome/52.0.2743.98 Mobile Safari/537.36",
             "Authorization": "Bearer {}".format(self.token.token),
         }
-
-    def _create_session(self):
-        return requests.Session()
 
     # XXX: we share some functionality with legacy wrapper here
     # however, it is little and not worth the lack of extensibility if generalized in super class
@@ -81,16 +79,13 @@ class PostcardCreator:
                 f"cannot fetch {endpoint}: {payload['errors']}"
             )
 
-    def get_quota(self):
+    def get_quota(self) -> Quota:
         _LOGGER.debug("fetching quota")
         endpoint = "/user/quota"
 
         payload = self._do_op("get", endpoint).json()
         self._validate_model_response(endpoint, payload)
-        return payload["model"]
-
-    def has_free_postcard(self):
-        return self.get_quota()["available"]
+        return Quota.from_model(payload["model"])
 
     def get_user_info(self):
         _LOGGER.debug("fetching user information")
@@ -154,11 +149,13 @@ class PostcardCreator:
             _LOGGER.info(f"mock_send=True, endpoint: {endpoint}, payload: {copy}")
             return False
 
-        if not self.has_free_postcard():
-            raise PostcardCreatorException(
-                "Limit of free postcards exceeded. Try again tomorrow at "
-                + self.get_quota()["next"]
-            )
+        if not paid:
+            quota = self.get_quota()
+            if not quota.available:
+                raise FreeQuotaExceededException(
+                    "Limit of free postcards exceeded. Try again at "
+                    + quota.next.isoformat()
+                )
 
         payload = self._do_op("post", endpoint, json=payload).json()
         _LOGGER.debug(f"{endpoint} with response {payload}")
