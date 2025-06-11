@@ -15,5 +15,7 @@ FROM python:3.13-alpine
 
 COPY --from=builder --chown=app:app /app /app
 
+EXPOSE 8000
+
 ENV PATH="/app/.venv/bin:$PATH"
 CMD [ "fastapi", "run", "/app/src/postcard_creator_server" ]
