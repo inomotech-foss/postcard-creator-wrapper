@@ -152,10 +152,10 @@ class PostcardCreator:
         if not paid:
             quota = self.get_quota()
             if not quota.available:
-                raise FreeQuotaExceededException(
-                    "Limit of free postcards exceeded. Try again at "
-                    + quota.next.isoformat()
-                )
+                msg = "Limit of free postcards exceeded."
+                if quota.next is not None:
+                    msg += f"Try again at {quota.next.isoformat()}"
+                raise FreeQuotaExceededException(msg)
 
         payload = self._do_op("post", endpoint, json=payload).json()
         _LOGGER.debug(f"{endpoint} with response {payload}")

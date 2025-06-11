@@ -22,16 +22,20 @@ class Quota:
     end: datetime
     retention_days: int
     available: bool
-    next: datetime
+    next: datetime | None
 
     @classmethod
     def from_model(cls, model: dict[str, Any]) -> Self:
+        try:
+            next_ = datetime.fromisoformat(model["next"])
+        except (KeyError, TypeError):
+            next_ = None
         return cls(
             quota=int(model["quota"]),
             end=datetime.fromisoformat(model["end"]),
             retention_days=int(model["retentionDays"]),
             available=bool(model["available"]),
-            next=datetime.fromisoformat(model["next"]),
+            next=next_,
         )
 
 

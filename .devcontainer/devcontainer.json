@@ -12,5 +12,8 @@
                 "tamasfe.even-better-toml",
             ]
         }
+    },
+    "features": {
+        "ghcr.io/devcontainers/features/docker-in-docker:2": {}
     }
 }
